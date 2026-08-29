@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vinyl_depot}
+      POSTGRES_USER: ${POSTGRES_USER:-vinyl}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vinyl}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/pvlkrc/home-vinyl-depot:latest
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-vinyl}:${POSTGRES_PASSWORD:-vinyl}@db:5432/${POSTGRES_DB:-vinyl_depot}
+      PORT: 3000
+      NAVIDROME_URL: http://navidrome:4533
+      NAVIDROME_USER: ${NAVIDROME_USER:-vinyl}
+      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-changeme}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  navidrome:
+    image: deluan/navidrome:latest
+    ports:
+      - "4533:4533"
+    environment:
+      ND_MUSICFOLDER: /music
+      ND_SCANSCHEDULE: 1h
+    volumes:
+      - navidrome-data:/data
+      - ./music:/music:ro
+
+volumes:
+  db-data:
+  navidrome-data:
